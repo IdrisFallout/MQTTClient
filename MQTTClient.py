@@ -1,3 +1,4 @@
+import os
 from tkinter import *
 from mqtt_backend import *
 
@@ -28,6 +29,16 @@ root.configure(bg="#ECF0F5")
 #####################################################
 # ******************FUNCTIONS***********************#
 #####################################################
+
+def prepare_environment():
+    if os.path.isfile("resources/subscribed_topics.txt"):
+        pass
+    else:
+        open("resources/subscribed_topics.txt", "w").close()
+
+    load_subscribed_topics()
+
+
 def load_dashboard():
     dashboard_selected_label.configure(image=dashboard_selected_img)
     subscribe_selected_label.configure(image=subscribe_unselected_img)
@@ -56,6 +67,18 @@ def load_publish():
     dashboard_content_parent_frame.place_forget()
     subscribe_content_parent_frame.place_forget()
     publish_content_parent_frame.place(x=0, y=130, relwidth=1, relheight=0.809)
+
+
+def load_subscribed_topics():
+    try:
+        with open("resources/subscribed_topics.txt", "r") as f:
+            the_subscribed_topics = f.read().splitlines()
+        for topic in the_subscribed_topics:
+            if topic != "":
+                display_message1(topic)
+                subscribed_topics.append(topic)
+    except:
+        pass
 
 
 def on_frame1_configure():
@@ -110,6 +133,16 @@ def on_frame2_configure():
     subscribe_canvas.configure(scrollregion=subscribe_canvas.bbox("all"))
 
 
+def delete_subscribed_topic(topic):
+    with open('resources/subscribed_topics.txt', 'r') as f:
+        lines = f.readlines()
+
+    with open('resources/subscribed_topics.txt', 'w') as f:
+        for line in lines:
+            if line.strip() != topic:
+                f.write(line)
+
+
 def delete_topic(event):
     parent_widget = event.widget.winfo_parent()
     result_frame_widget = event.widget.nametowidget(parent_widget)
@@ -117,6 +150,8 @@ def delete_topic(event):
     connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
     subscribed_topics.remove(topic_lbl.cget("text"))
     connect_to_server.client.update_topics(topic_lbl.cget("text"))
+    # delete from file
+    # delete_subscribed_topic(topic_lbl.cget("text"))
     event.widget.master.destroy()
 
 
@@ -139,15 +174,22 @@ def on_img_label_click(event):
         connect_to_server.client.subscribe(subscribed_topics)
 
 
-def display_message1():
-    if topic_txt.get().strip() == "":
+def save_subscribed_topics():
+    with open("resources/subscribed_topics.txt", "w") as file:
+        for topic in subscribed_topics:
+            if topic != "":
+                file.write(topic + "\n")
+
+
+def display_message1(the_topic):
+    if the_topic.strip() == "":
         return
     topic_frame = Frame(inner_subscribe_content_frame, bg="#ECF0F5")
     topic_frame.grid(row=display_message1.message_y, column=0)
 
     topic_bg_lbl = Label(topic_frame, image=topic_result_img)
     topic_bg_lbl.grid(row=0, column=0)
-    topic_lbl = Label(topic_frame, text=f"{topic_txt.get()}", bg="#3725AB", fg="white",
+    topic_lbl = Label(topic_frame, text=f"{the_topic}", bg="#3725AB", fg="white",
                       font=("Times New Roman", 24), anchor=NW)
     topic_lbl.place(x=20, y=15, width=330)
     delete_label = Label(topic_frame, image=bin_img, bg="#3725AB")
@@ -165,6 +207,7 @@ def display_message1():
         connect_to_server.client.subscribe(subscribed_topics)
     except:
         pass
+    # save_subscribed_topics(topic_lbl.cget("text"))
 
 
 def on_frame3_configure():
@@ -229,6 +272,8 @@ def create_client():
     if connect_to_server.is_connected:
         return
     connect_to_server.client = MqttClient(connect_to_server.broker_address, connect_to_server.broker_port)
+    connect_to_server.client.update_topics(subscribed_topics)
+    connect_to_server.client.subscribe(subscribed_topics)
 
     connect_to_server.client.set_display_message(display_message=[display_message, adjust_scrollbar])
     connect_to_server.client.set_disconnection_callback(disconnection_callback=handle_disconnection)
@@ -281,6 +326,14 @@ def handle_disconnection():
     if not connect_to_server.client.is_connected:
         connect_to_server.is_connected = False
     disable_logins()
+
+
+def on_closing():
+    try:
+        connect_to_server.client.disconnect()
+    except:
+        pass
+    root.destroy()
 
 
 #####################################################
@@ -435,7 +488,7 @@ topic_txt = Entry(subscribe_content_top_frame, width=51, bg="#ECF0F5", bd=0, rel
 topic_txt.place(x=320, y=31, height=30)
 
 subscribe_button = Button(subscribe_content_top_frame, image=subscribe_img, bg="#ECF0F5", bd=0, relief="flat",
-                          activebackground="#ECF0F5", command=lambda: display_message1())
+                          activebackground="#ECF0F5", command=lambda: display_message1(topic_txt.get()))
 subscribe_button.place(x=521, y=80)
 
 # Create a canvas and scrollbar for the first frame
@@ -444,7 +497,8 @@ subscribe_canvas.pack(side="left", fill="both", expand=True)
 
 inner_subscribe_content_parent_frame = Frame(subscribe_canvas, bg="#ECF0F5", width=940, height=469.49)
 
-inner_subscribe_content_sibling_frame = Frame(inner_subscribe_content_parent_frame, bg="#ECF0F5", width=263, height=469.49)
+inner_subscribe_content_sibling_frame = Frame(inner_subscribe_content_parent_frame, bg="#ECF0F5", width=263,
+                                              height=469.49)
 inner_subscribe_content_sibling_frame.pack(side="left", fill="both", expand=True)
 
 inner_subscribe_content_frame = Frame(inner_subscribe_content_parent_frame, bg="#ECF0F5", width=940, height=469.49)
@@ -511,4 +565,7 @@ publish_canvas.create_window((0, 0), window=inner_publish_content_parent_frame, 
 
 inner_publish_content_frame.bind("<Configure>", lambda e: on_frame3_configure())
 
+prepare_environment()
+
+root.protocol("WM_DELETE_WINDOW", lambda: on_closing())
 root.mainloop()

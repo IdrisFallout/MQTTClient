@@ -9,6 +9,8 @@ class MqttClient:
         self.broker_port = broker_port
         self.client = mqtt.Client()
         self.client.on_message = self.on_message
+        self.client.on_connect = self.on_connect
+        self.client.on_disconnect = self.on_disconnect
         self.topics = []
         self.latest_message = [None, None]
         self.the_message = None
@@ -41,7 +43,7 @@ class MqttClient:
         self.client.loop_start()
 
     def on_connect(self, client, userdata, flags, rc):
-        print("Connected with result code " + str(rc))
+        print(self.topics)
         for topic in self.topics:
             self.client.subscribe(topic)
 
@@ -50,11 +52,9 @@ class MqttClient:
         self.is_connected = False
         self.handle_disconnection()
 
-    @staticmethod
     def on_disconnect(self, client, userdata, rc):
-        if rc != 0:
-            pass
-            # print("Unexpected disconnection.")
+        pass
+        # print("Disconnected with result code " + str(rc))
 
     def set_disconnection_callback(self, disconnection_callback):
         self.disconnection_callback = disconnection_callback
