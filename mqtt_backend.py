@@ -1,45 +1,94 @@
 import paho.mqtt.client as mqtt
 
-# Define the MQTT broker and port
-broker_address = "test.mosquitto.org"
-broker_port = 1883
 
-# Define the MQTT topic to subscribe to
-topic = "esp/led/status"
+class MqttClient:
+    the_topic = None
 
-# Define the message to publish
-message = "1"
+    def __init__(self, broker_address, broker_port):
+        self.broker_address = broker_address
+        self.broker_port = broker_port
+        self.client = mqtt.Client()
+        self.client.on_message = self.on_message
+        self.topics = []
+        self.latest_message = [None, None]
+        self.the_message = None
+        self.display_message = []
+        self.disconnection_callback = None
+        self.is_connected = False
 
-# Define the MQTT client
-client = mqtt.Client()
+    def update_logins(self, broker_address, broker_port):
+        self.broker_address = broker_address
+        self.broker_port = broker_port
 
+    def on_message(self, client, userdata, message):
+        try:
+            self.the_message = [message.topic, str(message.payload.decode("utf-8"))]
+            self.get_latest_message()
+        except:
+            pass
 
-# Define callback functions for when the client connects and receives a message
-def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
-    # Subscribe to the topic
-    client.subscribe(topic)
+    def get_latest_message(self):
+        # print(self.display_message)
+        self.display_message[0](self.the_message[1], self.the_message[0])
+        self.display_message[1]()
 
+    def set_display_message(self, display_message):
+        self.display_message = display_message
 
-def on_message(client, userdata, message):
-    print("Received message: " + str(message.payload.decode()))
+    def connect(self):
+        self.client.connect(self.broker_address, self.broker_port)
+        self.is_connected = True
+        self.client.loop_start()
 
+    def on_connect(self, client, userdata, flags, rc):
+        print("Connected with result code " + str(rc))
+        for topic in self.topics:
+            self.client.subscribe(topic)
 
-# Set the callback functions
-client.on_connect = on_connect
-client.on_message = on_message
+    def disconnect(self):
+        self.client.disconnect()
+        self.is_connected = False
+        self.handle_disconnection()
 
-# Connect to the MQTT broker
-client.connect(broker_address, broker_port)
+    @staticmethod
+    def on_disconnect(self, client, userdata, rc):
+        if rc != 0:
+            pass
+            # print("Unexpected disconnection.")
 
-# Start the MQTT client loop
-client.loop_start()
+    def set_disconnection_callback(self, disconnection_callback):
+        self.disconnection_callback = disconnection_callback
 
-# Publish the message to the MQTT topic
-client.publish(topic, message)
+    def handle_disconnection(self):
+        if self.disconnection_callback is not None:
+            self.disconnection_callback()
 
-# Wait for messages to be received
-input("Press Enter to quit.")
+    def publish(self, topic, message):
+        self.client.publish(topic, message)
 
-# Stop the MQTT client loop
-client.loop_stop()
+    def subscribe(self, topics):
+        self.topics = topics
+        for topic in self.topics:
+            self.client.subscribe(topic)
+
+    def unsubscribe(self, topic):
+        if topic in self.topics:
+            self.client.unsubscribe(topic)
+
+    def update_topics(self, topics):
+        self.topics = list(set(topics))
+
+    def loop_stop(self):
+        self.client.loop_stop()
+
+# Example usage
+# if __name__ == "__main__":
+#     # Create MQTT client instance and connect to broker
+#     client = MqttClient("test.mosquitto.org", 1883)
+#     client.connect()
+#
+#     # Publish message to topic
+#     client.publish("esp/led", "0")
+#
+#     # Subscribe to topic and print received messages
+#     client.subscribe("esp/led/status")
