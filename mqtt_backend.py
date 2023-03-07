@@ -17,6 +17,7 @@ class MqttClient:
         self.display_message = []
         self.disconnection_callback = None
         self.is_connected = False
+        self.topics_state = []
 
     def update_logins(self, broker_address, broker_port):
         self.broker_address = broker_address
@@ -43,9 +44,10 @@ class MqttClient:
         self.client.loop_start()
 
     def on_connect(self, client, userdata, flags, rc):
-        # print(self.topics)
-        for topic in self.topics:
-            self.client.subscribe(topic)
+        for topic_dict in self.topics_state:
+            if topic_dict["state"] == 1:
+                print(topic_dict["topic"])
+                self.client.subscribe(topic_dict["topic"])
 
     def disconnect(self):
         self.client.disconnect()
@@ -80,17 +82,8 @@ class MqttClient:
     def update_topics(self, topics):
         self.topics = list(set(topics))
 
+    def update_topics_state(self, topics):
+        self.topics_state = topics
+
     def loop_stop(self):
         self.client.loop_stop()
-
-# Example usage
-# if __name__ == "__main__":
-#     # Create MQTT client instance and connect to broker
-#     client = MqttClient("test.mosquitto.org", 1883)
-#     client.connect()
-#
-#     # Publish message to topic
-#     client.publish("esp/led", "0")
-#
-#     # Subscribe to topic and print received messages
-#     client.subscribe("esp/led/status")

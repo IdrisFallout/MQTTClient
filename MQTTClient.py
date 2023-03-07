@@ -154,6 +154,7 @@ def delete_topic(event):
     try:
         connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
         connect_to_server.client.update_topics(subscribed_topics)
+        connect_to_server.client.update_topics_state(subscribed_topics_dict)
     except:
         pass
     event.widget.master.destroy()
@@ -169,7 +170,8 @@ def on_img_label_click(parent_widget):
         img_lbl.config(image=result_inactive_img)
         topic_lbl.config(fg="black", bg="#D3D3D3")
         delete_label.config(fg="black", bg="#D3D3D3")
-        [sub_topic.update({"state": 0}) for sub_topic in subscribed_topics_dict if sub_topic.get("topic") == topic_lbl.cget("text")]
+        [sub_topic.update({"state": 0}) for sub_topic in subscribed_topics_dict if
+         sub_topic.get("topic") == topic_lbl.cget("text")]
         if connect_to_server.is_connected:
             connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
     else:
@@ -180,7 +182,6 @@ def on_img_label_click(parent_widget):
          sub_topic.get("topic") == topic_lbl.cget("text")]
         if connect_to_server.is_connected:
             connect_to_server.client.subscribe_to_topic(topic_lbl.cget("text"))
-
 
 
 def save_subscribed_topics():
@@ -211,7 +212,6 @@ def display_message1(the_topic):
     topic_bg_lbl.bind('<Button-1>', lambda event: on_img_label_click(str(event.widget.winfo_parent())))
     topic_lbl.bind('<Button-1>', lambda event: on_img_label_click(str(event.widget.winfo_parent())))
 
-
     # during startup
     if prepare_environment.is_startup:
         if the_message["state"] == 1:
@@ -229,6 +229,7 @@ def display_message1(the_topic):
             subscribed_topics_dict.append({"topic": f"{topic_lbl.cget('text')}", "state": 1})
         subscribed_topics.append(topic_lbl.cget("text"))
         connect_to_server.client.update_topics(subscribed_topics)
+        connect_to_server.client.update_topics_state(subscribed_topics_dict)
         # Subscribe to topic and print received messages
         connect_to_server.client.subscribe_to_topic(topic_lbl.cget("text"))
     except:
@@ -300,6 +301,7 @@ def create_client():
         return
     connect_to_server.client = MqttClient(connect_to_server.broker_address, connect_to_server.broker_port)
     connect_to_server.client.update_topics(subscribed_topics)
+    connect_to_server.client.update_topics_state(subscribed_topics_dict)
     connect_to_server.client.subscribe(subscribed_topics)
     # print(subscribed_topics)
 
