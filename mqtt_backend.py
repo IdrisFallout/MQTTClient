@@ -31,7 +31,6 @@ class MqttClient:
             pass
 
     def get_latest_message(self):
-        # print(self.display_message)
         self.display_message[0](self.the_message[1], self.the_message[0])
         self.display_message[1]()
 
@@ -46,7 +45,6 @@ class MqttClient:
     def on_connect(self, client, userdata, flags, rc):
         for topic_dict in self.topics_state:
             if topic_dict["state"] == 1:
-                print(topic_dict["topic"])
                 self.client.subscribe(topic_dict["topic"])
 
     def disconnect(self):

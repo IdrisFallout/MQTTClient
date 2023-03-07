@@ -9,6 +9,7 @@ HEIGHT = 720
 connected_user = "GUEST"
 subscribed_topics = []
 subscribed_topics_dict = []
+publish_messages_dict = []
 
 SERVER_ADDRESS = "test.mosquitto.org"
 SERVER_PORT = 1883
@@ -16,6 +17,8 @@ SERVER_PORT = 1883
 font1 = ("Roboto", 9, 'bold')
 
 root = Tk()
+root.iconbitmap('images/internet-of-things.ico')
+
 dashboard_autoscroll = IntVar()
 
 screen_width = root.winfo_screenwidth()
@@ -41,10 +44,17 @@ def prepare_environment():
     else:
         open("resources/subscribed_topics.json", "w").close()
 
+    if os.path.isfile("resources/publish_messages.json"):
+        pass
+    else:
+        open("resources/publish_messages.json", "w").close()
+
     host_txt.insert(0, f"{SERVER_ADDRESS}")
     port_txt.insert(0, f"{SERVER_PORT}")
     load_subscribed_topics()
-    prepare_environment.is_startup = False
+    load_subscribed_topics.is_startup = False
+    load_publish_messages()
+    load_publish_messages.is_startup = False
 
 
 def load_dashboard():
@@ -86,6 +96,19 @@ def load_subscribed_topics():
         for topic in subscribed_topics_dict:
             display_message1(topic)
             load_subscribed_topics.count += 1
+    except:
+        pass
+
+
+def load_publish_messages():
+    try:
+        with open('resources/publish_messages.json', 'r') as f:
+            data = json.load(f)
+        for message in data:
+            publish_messages_dict.append(message)
+            display_message2(message)
+            load_publish_messages.count += 1
+
     except:
         pass
 
@@ -158,6 +181,7 @@ def delete_topic(event):
     except:
         pass
     event.widget.master.destroy()
+    display_message1.message_y += 1
 
 
 def on_img_label_click(parent_widget):
@@ -189,11 +213,16 @@ def save_subscribed_topics():
         json.dump(subscribed_topics_dict, file)
 
 
+def save_published_topics():
+    with open("resources/publish_messages.json", "w") as file:
+        json.dump(publish_messages_dict, file)
+
+
 def display_message1(the_topic):
     the_message = None
     if the_topic == "":
         return
-    if prepare_environment.is_startup:
+    if load_subscribed_topics.is_startup:
         the_message = the_topic
         the_topic = the_topic['topic']
 
@@ -213,7 +242,7 @@ def display_message1(the_topic):
     topic_lbl.bind('<Button-1>', lambda event: on_img_label_click(str(event.widget.winfo_parent())))
 
     # during startup
-    if prepare_environment.is_startup:
+    if load_subscribed_topics.is_startup:
         if the_message["state"] == 1:
             pass
         elif the_message["state"] == 0:
@@ -225,7 +254,7 @@ def display_message1(the_topic):
     # print(subscribed_topics_dict)
 
     try:
-        if not prepare_environment.is_startup:
+        if not load_subscribed_topics.is_startup:
             subscribed_topics_dict.append({"topic": f"{topic_lbl.cget('text')}", "state": 1})
         subscribed_topics.append(topic_lbl.cget("text"))
         connect_to_server.client.update_topics(subscribed_topics)
@@ -242,8 +271,19 @@ def on_frame3_configure():
 
 
 def delete_publish(event):
-    # print("Deleting...")
+    parent_widget = event.widget.winfo_parent()
+    result_frame_widget = event.widget.nametowidget(parent_widget)
+    topic_lbl = result_frame_widget.winfo_children()[1]
+    message_lbl = result_frame_widget.winfo_children()[2]
+
+    global publish_messages_dict
+
+    publish_messages_dict = [d for d in publish_messages_dict if
+                             not (d["topic"] == topic_lbl.cget('text') and d["message"] == message_lbl.cget('text'))]
+
     event.widget.master.destroy()
+    print(publish_messages_dict)
+    display_message2.message_y -= 1
 
 
 def on_img_label_click1(event):
@@ -251,12 +291,6 @@ def on_img_label_click1(event):
     result_frame_widget = event.widget.nametowidget(parent_widget)
     topic_lbl = result_frame_widget.winfo_children()[1]
     msg_lbl = result_frame_widget.winfo_children()[2]
-
-    # topic_txt1.delete(0, END)
-    # topic_txt1.insert(0, topic_lbl.cget("text"))
-    #
-    # message_txt.delete(0, END)
-    # message_txt.insert(0, msg_lbl.cget("text"))
 
     publish_message(topic_lbl.cget("text"), msg_lbl.cget("text"))
 
@@ -270,18 +304,23 @@ def publish_message(topic, message):
     connect_to_server.client.publish(topic, message)
 
 
-def display_message2():
-    if topic_txt1.get().strip() == "" or message_txt.get().strip() == "":
+def display_message2(the_topic):
+    global some_topic, some_message
+    if the_topic['topic'] == "" or the_topic['message'] == "":
         return
+
+    some_topic = the_topic['topic']
+    some_message = the_topic['message']
+
     topic_frame = Frame(inner_publish_content_frame, bg="#ECF0F5")
-    topic_frame.grid(row=display_message1.message_y, column=0)
+    topic_frame.grid(row=display_message2.message_y, column=0)
     bg_label = Label(topic_frame, image=topic_result_img)
     bg_label.grid(row=0, column=0)
 
-    topic_lbl = Label(topic_frame, text=f"{topic_txt1.get()}", bg="#3725AB", fg="white",
+    topic_lbl = Label(topic_frame, text=f"{some_topic}", bg="#3725AB", fg="white",
                       font=("Times New Roman", 24), anchor=NW)
     topic_lbl.place(x=20, y=15, width=200)
-    msg_lbl = Label(topic_frame, text=f"{message_txt.get()}", bg="#3725AB", fg="white",
+    msg_lbl = Label(topic_frame, text=f"{some_message}", bg="#3725AB", fg="white",
                     font=("Times New Roman", 24), anchor=E)
     msg_lbl.place(x=280, y=15, width=80)
     delete_label = Label(topic_frame, image=bin_img, bg="#3725AB")
@@ -292,8 +331,10 @@ def display_message2():
     topic_lbl.bind('<Button-1>', on_img_label_click1)
     msg_lbl.bind('<Button-1>', on_img_label_click1)
 
-    # subscribed_topics.append(topic_frame)
-    display_message1.message_y += 1
+    if not load_publish_messages.is_startup:
+        publish_messages_dict.append({"topic": f"{topic_lbl.cget('text')}", "message": f"{msg_lbl.cget('text')}"})
+
+    display_message2.message_y += 1
 
 
 def create_client():
@@ -361,6 +402,7 @@ def handle_disconnection():
 def on_closing():
     try:
         save_subscribed_topics()
+        save_published_topics()
         connect_to_server.client.disconnect()
     except:
         pass
@@ -383,9 +425,13 @@ toggle_result_frame.is_active = True
 connect_to_server.client = None
 connect_to_server.the_count = 0
 
-prepare_environment.is_startup = True
+load_subscribed_topics.is_startup = True
+load_publish_messages.is_startup = True
 
 load_subscribed_topics.count = 1
+load_publish_messages.count = 1
+
+display_message2.message_y = 0
 
 sidebar_img = PhotoImage(file="images/sidebar.png")
 connect_img = PhotoImage(file="images/connect.png")
@@ -571,7 +617,8 @@ message_txt = Entry(publish_content_top_frame, width=51, bg="#ECF0F5", bd=0, rel
 message_txt.place(x=320, y=97, height=30)
 
 save_button = Button(publish_content_top_frame, image=save_img, bg="#ECF0F5", bd=0, relief="flat",
-                     activebackground="#ECF0F5", command=lambda: display_message2())
+                     activebackground="#ECF0F5", command=lambda: display_message2(
+        {"topic": f"{topic_txt1.get()}", "message": f"{message_txt.get()}"}))
 save_button.place(x=395, y=145)
 
 publish_button = Button(publish_content_top_frame, image=publish_img, bg="#ECF0F5", bd=0, relief="flat",
