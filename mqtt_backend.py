@@ -43,7 +43,7 @@ class MqttClient:
         self.client.loop_start()
 
     def on_connect(self, client, userdata, flags, rc):
-        print(self.topics)
+        # print(self.topics)
         for topic in self.topics:
             self.client.subscribe(topic)
 
@@ -54,7 +54,6 @@ class MqttClient:
 
     def on_disconnect(self, client, userdata, rc):
         pass
-        # print("Disconnected with result code " + str(rc))
 
     def set_disconnection_callback(self, disconnection_callback):
         self.disconnection_callback = disconnection_callback
@@ -70,6 +69,9 @@ class MqttClient:
         self.topics = topics
         for topic in self.topics:
             self.client.subscribe(topic)
+
+    def subscribe_to_topic(self, topic):
+        self.client.subscribe(topic)
 
     def unsubscribe(self, topic):
         if topic in self.topics:

@@ -1,3 +1,4 @@
+import json
 import os
 from tkinter import *
 from mqtt_backend import *
@@ -7,6 +8,10 @@ HEIGHT = 720
 
 connected_user = "GUEST"
 subscribed_topics = []
+subscribed_topics_dict = []
+
+SERVER_ADDRESS = "test.mosquitto.org"
+SERVER_PORT = 1883
 
 font1 = ("Roboto", 9, 'bold')
 
@@ -31,12 +36,15 @@ root.configure(bg="#ECF0F5")
 #####################################################
 
 def prepare_environment():
-    if os.path.isfile("resources/subscribed_topics.txt"):
+    if os.path.isfile("resources/subscribed_topics.json"):
         pass
     else:
-        open("resources/subscribed_topics.txt", "w").close()
+        open("resources/subscribed_topics.json", "w").close()
 
+    host_txt.insert(0, f"{SERVER_ADDRESS}")
+    port_txt.insert(0, f"{SERVER_PORT}")
     load_subscribed_topics()
+    prepare_environment.is_startup = False
 
 
 def load_dashboard():
@@ -71,12 +79,13 @@ def load_publish():
 
 def load_subscribed_topics():
     try:
-        with open("resources/subscribed_topics.txt", "r") as f:
-            the_subscribed_topics = f.read().splitlines()
-        for topic in the_subscribed_topics:
-            if topic != "":
-                display_message1(topic)
-                subscribed_topics.append(topic)
+        with open('resources/subscribed_topics.json', 'r') as f:
+            data = json.load(f)
+        for message in data:
+            subscribed_topics_dict.append(message)
+        for topic in subscribed_topics_dict:
+            display_message1(topic)
+            load_subscribed_topics.count += 1
     except:
         pass
 
@@ -87,7 +96,7 @@ def on_frame1_configure():
 
 def toggle_result_frame(event):
     toggle_result_frame.is_active = not toggle_result_frame.is_active
-    print(toggle_result_frame.is_active)
+    # print(toggle_result_frame.is_active)
 
 
 def display_message(message, topic):
@@ -133,31 +142,25 @@ def on_frame2_configure():
     subscribe_canvas.configure(scrollregion=subscribe_canvas.bbox("all"))
 
 
-def delete_subscribed_topic(topic):
-    with open('resources/subscribed_topics.txt', 'r') as f:
-        lines = f.readlines()
-
-    with open('resources/subscribed_topics.txt', 'w') as f:
-        for line in lines:
-            if line.strip() != topic:
-                f.write(line)
-
-
 def delete_topic(event):
     parent_widget = event.widget.winfo_parent()
     result_frame_widget = event.widget.nametowidget(parent_widget)
     topic_lbl = result_frame_widget.winfo_children()[1]
-    connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
     subscribed_topics.remove(topic_lbl.cget("text"))
-    connect_to_server.client.update_topics(topic_lbl.cget("text"))
-    # delete from file
-    # delete_subscribed_topic(topic_lbl.cget("text"))
+
+    global subscribed_topics_dict
+
+    subscribed_topics_dict = [d for d in subscribed_topics_dict if d["topic"] != f"{topic_lbl.cget('text')}"]
+    try:
+        connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
+        connect_to_server.client.update_topics(subscribed_topics)
+    except:
+        pass
     event.widget.master.destroy()
 
 
-def on_img_label_click(event):
-    parent_widget = event.widget.winfo_parent()
-    result_frame_widget = event.widget.nametowidget(parent_widget)
+def on_img_label_click(parent_widget):
+    result_frame_widget = root.nametowidget(parent_widget)
     img_lbl = result_frame_widget.winfo_children()[0]
     topic_lbl = result_frame_widget.winfo_children()[1]
     delete_label = result_frame_widget.winfo_children()[2]
@@ -166,24 +169,33 @@ def on_img_label_click(event):
         img_lbl.config(image=result_inactive_img)
         topic_lbl.config(fg="black", bg="#D3D3D3")
         delete_label.config(fg="black", bg="#D3D3D3")
-        connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
+        [sub_topic.update({"state": 0}) for sub_topic in subscribed_topics_dict if sub_topic.get("topic") == topic_lbl.cget("text")]
+        if connect_to_server.is_connected:
+            connect_to_server.client.unsubscribe(topic_lbl.cget("text"))
     else:
         img_lbl.config(image=topic_result_img)
         topic_lbl.config(fg="white", bg="#3725AB")
         delete_label.config(fg="white", bg="#3725AB")
-        connect_to_server.client.subscribe(subscribed_topics)
+        [sub_topic.update({"state": 1}) for sub_topic in subscribed_topics_dict if
+         sub_topic.get("topic") == topic_lbl.cget("text")]
+        if connect_to_server.is_connected:
+            connect_to_server.client.subscribe_to_topic(topic_lbl.cget("text"))
+
 
 
 def save_subscribed_topics():
-    with open("resources/subscribed_topics.txt", "w") as file:
-        for topic in subscribed_topics:
-            if topic != "":
-                file.write(topic + "\n")
+    with open("resources/subscribed_topics.json", "w") as file:
+        json.dump(subscribed_topics_dict, file)
 
 
 def display_message1(the_topic):
-    if the_topic.strip() == "":
+    the_message = None
+    if the_topic == "":
         return
+    if prepare_environment.is_startup:
+        the_message = the_topic
+        the_topic = the_topic['topic']
+
     topic_frame = Frame(inner_subscribe_content_frame, bg="#ECF0F5")
     topic_frame.grid(row=display_message1.message_y, column=0)
 
@@ -196,18 +208,32 @@ def display_message1(the_topic):
     delete_label.place(x=369, y=25)
     delete_label.bind("<Button-1>", delete_topic)
 
-    topic_bg_lbl.bind('<Button-1>', on_img_label_click)
-    topic_lbl.bind('<Button-1>', on_img_label_click)
+    topic_bg_lbl.bind('<Button-1>', lambda event: on_img_label_click(str(event.widget.winfo_parent())))
+    topic_lbl.bind('<Button-1>', lambda event: on_img_label_click(str(event.widget.winfo_parent())))
+
+
+    # during startup
+    if prepare_environment.is_startup:
+        if the_message["state"] == 1:
+            pass
+        elif the_message["state"] == 0:
+            # simulate a click on the topic label
+            parent_frame = f".!frame3.!frame3.!frame.!canvas.!frame.!frame2.!frame{'' if load_subscribed_topics.count == 1 else load_subscribed_topics.count}"
+            on_img_label_click(parent_frame)
+    else:
+        pass
+    # print(subscribed_topics_dict)
 
     try:
+        if not prepare_environment.is_startup:
+            subscribed_topics_dict.append({"topic": f"{topic_lbl.cget('text')}", "state": 1})
         subscribed_topics.append(topic_lbl.cget("text"))
         connect_to_server.client.update_topics(subscribed_topics)
-        display_message1.message_y += 1
         # Subscribe to topic and print received messages
-        connect_to_server.client.subscribe(subscribed_topics)
+        connect_to_server.client.subscribe_to_topic(topic_lbl.cget("text"))
     except:
         pass
-    # save_subscribed_topics(topic_lbl.cget("text"))
+    display_message1.message_y += 1
 
 
 def on_frame3_configure():
@@ -215,6 +241,7 @@ def on_frame3_configure():
 
 
 def delete_publish(event):
+    # print("Deleting...")
     event.widget.master.destroy()
 
 
@@ -274,6 +301,7 @@ def create_client():
     connect_to_server.client = MqttClient(connect_to_server.broker_address, connect_to_server.broker_port)
     connect_to_server.client.update_topics(subscribed_topics)
     connect_to_server.client.subscribe(subscribed_topics)
+    # print(subscribed_topics)
 
     connect_to_server.client.set_display_message(display_message=[display_message, adjust_scrollbar])
     connect_to_server.client.set_disconnection_callback(disconnection_callback=handle_disconnection)
@@ -330,6 +358,7 @@ def handle_disconnection():
 
 def on_closing():
     try:
+        save_subscribed_topics()
         connect_to_server.client.disconnect()
     except:
         pass
@@ -351,6 +380,10 @@ toggle_result_frame.is_active = True
 
 connect_to_server.client = None
 connect_to_server.the_count = 0
+
+prepare_environment.is_startup = True
+
+load_subscribed_topics.count = 1
 
 sidebar_img = PhotoImage(file="images/sidebar.png")
 connect_img = PhotoImage(file="images/connect.png")
