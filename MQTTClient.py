@@ -282,7 +282,7 @@ def delete_publish(event):
                              not (d["topic"] == topic_lbl.cget('text') and d["message"] == message_lbl.cget('text'))]
 
     event.widget.master.destroy()
-    print(publish_messages_dict)
+    # print(publish_messages_dict)
     display_message2.message_y -= 1
 
 
