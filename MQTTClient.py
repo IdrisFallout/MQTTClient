@@ -384,6 +384,7 @@ def disable_logins():
         password_txt.config(state=DISABLED)
         connect_btn.config(image=disconnect_img)
         connection_status_label.config(image=good_network_img)
+        connected_user_label.config(text=f"{username_txt.get().strip().upper() if username_txt.get().strip() != '' else f'{connected_user}'}")
     else:
         host_txt.config(state=NORMAL)
         port_txt.config(state=NORMAL)
@@ -391,6 +392,7 @@ def disable_logins():
         password_txt.config(state=NORMAL)
         connect_btn.config(image=connect_img)
         connection_status_label.config(image=bad_network_img)
+        connected_user_label.config(text=f"{connected_user}")
 
 
 def handle_disconnection():
