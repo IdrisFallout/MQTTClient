@@ -1,5 +1,4 @@
 # MQTTClient
-[![wakatime](https://wakatime.com/badge/github/IdrisFallout/MQTTClient.svg)](https://wakatime.com/badge/github/IdrisFallout/MQTTClient)
 ## Introduction
 This project is a MQTT client for the ESP8266 and other IOT devices. It is based on the [PubSubClient](https://pypi.org/project/paho-mqtt/) library.
 The mqtt technology is used to connect devices to the internet. The devices can be sensors, actuators, or other devices that can be connected to the internet. The mqtt protocol is a publish/subscribe protocol. The devices can publish data to a topic and other devices can subscribe to that topic. The devices can also subscribe to topics and receive data from other devices.
